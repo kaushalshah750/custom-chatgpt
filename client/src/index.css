@@ -1,0 +1,28 @@
+/* client/src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom scrollbar for a more modern feel */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  .dark & {
+    background: #2d3748;
+  }
+}
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+  .dark & {
+    background: #555;
+  }
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+  .dark & {
+    background: #777;
+  }
+}
