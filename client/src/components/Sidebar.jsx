@@ -112,9 +112,9 @@ const Sidebar = ({ toggleDarkMode, isDarkMode }) => {
             {openFolders[folder._id] && (
               <ul className="ml-4 border-l border-gray-300 dark:border-gray-600">
                 {chats.filter(c => c.folderId === folder._id).map(chat => (
-                  <li key={chat._id} onClick={() => setActiveChat(chat._id)} className={`p-2 rounded cursor-pointer text-sm truncate ${activeChatId === chat._id ? 'bg-blue-200 dark:bg-blue-800' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
-                    {chat.title}
-                  </li>
+                <li key={chat._id} onClick={() => handleSelectChat(chat._id)} className={`p-2 rounded cursor-pointer text-sm truncate ${activeChatIdFromUrl === chat._id ? 'bg-blue-200 dark:bg-blue-800' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
+                  {chat.title}
+                </li>
                 ))}
               </ul>
             )}
