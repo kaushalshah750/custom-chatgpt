@@ -4,8 +4,8 @@ const ChatSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   folderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Folder', default: null },
   createdAt: { type: Date, default: Date.now },
-  model: { type: String, default: 'gpt-3.5-turbo' },
+  model: { type: String, default: 'gpt-5' },
   systemPrompt: { type: String, default: 'You are a helpful assistant.' },
-  temperature: { type: Number, default: 0.7 },
+  temperature: { type: Number, default: 1 },
 });
 module.exports = mongoose.model('Chat', ChatSchema);

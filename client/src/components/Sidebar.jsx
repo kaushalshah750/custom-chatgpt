@@ -3,12 +3,16 @@ import React, { useState, useEffect } from 'react';
 import { useChatStore } from '../store/useChatStore';
 import { FaPlus, FaFolder, FaSun, FaMoon, FaChevronDown, FaChevronRight } from 'react-icons/fa';
 import MoveToFolderModal from './MoveToFolderModal'; // <-- Import the new modal component
+import PersonalizeModal from './PersonalizeModal'; // <-- Import the modal
+import { useAuthStore } from '../store/useAuthStore';
 
 const Sidebar = ({ toggleDarkMode, isDarkMode }) => {
+  const { user, logout } = useAuthStore();
   const { chats, folders, activeChatId, setActiveChat, createNewChat, fetchUserData, createFolder, moveChatToFolder } = useChatStore();
   const [openFolders, setOpenFolders] = React.useState({});
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
   const [chatToMoveId, setChatToMoveId] = useState(null);
+  const [isPersonalizeModalOpen, setIsPersonalizeModalOpen] = useState(false);
 
   useEffect(() => {
     fetchUserData();
@@ -50,7 +54,10 @@ const Sidebar = ({ toggleDarkMode, isDarkMode }) => {
 
   return (
     <div className="w-72 bg-gray-100 dark:bg-gray-900 p-4 flex flex-col">
-      {/* ... (Header and New Chat button) */}
+      <PersonalizeModal 
+        isOpen={isPersonalizeModalOpen} 
+        onClose={() => setIsPersonalizeModalOpen(false)} 
+      />
       <MoveToFolderModal 
         isOpen={isMoveModalOpen}
         onClose={closeMoveModal}
@@ -100,6 +107,15 @@ const Sidebar = ({ toggleDarkMode, isDarkMode }) => {
             </li>
           ))}
         </ul>
+      </div>
+      <div className="mt-auto">
+        <div className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer" onClick={() => setIsPersonalizeModalOpen(true)}>
+          <span className="font-semibold">{user?.displayName || user?.email}</span>
+          <p className="text-xs text-gray-500">Customize GPT</p>
+        </div>
+        <button onClick={logout} className="w-full text-left p-2 rounded text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 mt-2">
+          Log Out
+        </button>
       </div>
     </div>
   );

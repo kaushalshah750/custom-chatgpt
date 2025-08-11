@@ -7,6 +7,9 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   apiKey: { type: String, default: null }, // Optional user-provided OpenAI key
   createdAt: { type: Date, default: Date.now },
+  displayName: { type: String, default: '' }, // "What should ChatGPT call you?"
+  customInstructions: { type: String, default: '' }, // "What would you like ChatGPT to know about you to provide better responses?"
+  enableCustomInstructions: { type: Boolean, default: true }, // "Enable for new chats" toggle
 });
 
 // Hash password before saving

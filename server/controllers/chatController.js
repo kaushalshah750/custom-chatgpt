@@ -4,6 +4,17 @@ const Message = require('../models/Message');
 const Log = require('../models/Log');
 const Folder = require('../models/Folder');
 
+const buildSystemPrompt = (user) => {
+  if (!user.enableCustomInstructions || !user.customInstructions) {
+    return 'You are a helpful assistant.'; // Default fallback
+  }
+
+  let prompt = `The user, ${user.displayName || 'who you are assisting'}, has provided the following context and instructions for you to follow in your responses. Adhere to these instructions for all subsequent messages in this conversation:\n\n`;
+  prompt += `<INSTRUCTIONS>\n${user.customInstructions}\n</INSTRUCTIONS>`;
+  
+  return prompt;
+};
+
 // Initialize OpenAI client
 const getOpenAIClient = (user) => {
   // Use user's key if available, otherwise use the server's key
@@ -18,7 +29,7 @@ const getOpenAIClient = (user) => {
 const generateChatTitle = async (userMessage, openai) => {
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo', // Use a fast model for this
+      model: 'gpt-5-mini', // Use a fast model for this
       messages: [
         {
           role: 'system',
@@ -122,6 +133,88 @@ exports.getUserData = async (req, res) => {
     }
 };
 
+// POST /api/chat/stream
+exports.streamNewMessage = async (req, res) => {
+  const { chatId, messageContent, model, temperature, systemPrompt } = req.body;
+  const userId = req.user._id;
+
+  try {
+    // 1. Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders(); // Flush the headers to establish the connection
+
+    // 2. Save the user's message immediately
+    const userMessage = new Message({ chatId, role: 'user', content: messageContent });
+    await userMessage.save();
+    
+    // Auto-update title if it's a new chat (we can reuse our existing helper)
+    const chat = await Chat.findById(chatId);
+    if (chat && chat.title === 'New Chat') {
+      const titleOpenAI = getOpenAIClient(req.user); // Separate client for title generation
+      const newTitle = await generateChatTitle(messageContent, titleOpenAI);
+      chat.title = newTitle;
+      chat.model = model;
+      chat.temperature = temperature;
+      chat.systemPrompt = systemPrompt;
+      await chat.save();
+      // Send an event to update the title on the client
+      res.write(`data: ${JSON.stringify({ type: 'chatUpdate', data: chat })}\n\n`);
+    }
+
+    // 3. Prepare for OpenAI stream
+    const openai = getOpenAIClient(req.user);
+    const recentMessages = await Message.find({ chatId }).sort({ timestamp: 1 }).limit(20);
+    const formattedMessages = [
+      { role: "system", content: chat.systemPrompt },
+      ...recentMessages.map(m => ({ role: m.role, content: m.content }))
+    ];
+    
+    // 4. Call OpenAI API with stream: true
+    const stream = await openai.chat.completions.create({
+      model: chat.model,
+      messages: formattedMessages,
+      temperature: chat.temperature,
+      stream: true, // <-- THE MAGIC PARAMETER
+    });
+    
+    let fullAssistantResponse = '';
+    
+    // 5. Loop through the stream and send chunks to the client
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || '';
+      if (content) {
+        fullAssistantResponse += content;
+        // This is the SSE format: `data: { ...JSON... }\n\n`
+        res.write(`data: ${JSON.stringify({ type: 'content', data: content })}\n\n`);
+      }
+    }
+
+    // 6. After the stream ends, save the complete assistant message
+    if (fullAssistantResponse) {
+      const assistantMessage = new Message({
+        chatId,
+        role: 'assistant',
+        content: fullAssistantResponse,
+      });
+      await assistantMessage.save();
+      
+      // Optionally, you could log token usage here if needed, though it's more complex with streams.
+    }
+    
+    // 7. Send a final "done" event and close the connection
+    res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+    res.end();
+
+  } catch (error) {
+    console.error('Streaming Error:', error);
+    // If an error occurs, try to send an error event before closing.
+    res.write(`data: ${JSON.stringify({ type: 'error', data: 'An error occurred.' })}\n\n`);
+    res.end();
+  }
+};
+
 // POST /api/chat/:chatId/settings
 exports.updateChatSettings = async (req, res) => {
   try {
@@ -156,7 +249,16 @@ exports.getChatHistory = async (req, res) => {
 // POST /api/chat/new
 exports.createNewChat = async (req, res) => {
   try {
-    const newChat = new Chat({ userId: req.user._id });
+    // We get the full user object from our `protect` middleware
+    const user = req.user; 
+    
+    const defaultSystemPrompt = buildSystemPrompt(user);
+    
+    const newChat = new Chat({ 
+      userId: user._id,
+      systemPrompt: defaultSystemPrompt, // <-- Set the personalized default
+    });
+
     await newChat.save();
     res.status(201).json(newChat);
   } catch (error) {

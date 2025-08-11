@@ -8,6 +8,7 @@ const authRoutes = require('./routes/authRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const adminRoutes = require('./routes/adminRoutes'); // Assuming you'll protect this later
 const folderRoutes = require('./routes/folderRoutes');
+const userRoutes = require('./routes/userRoutes'); // <-- IMPORT
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -29,6 +30,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/folders', folderRoutes);
+app.use('/api/users', userRoutes); // <-- USE THE NEW ROUTE
 
 // Global Error Handler (simple version)
 app.use((err, req, res, next) => {

@@ -32,6 +32,9 @@ exports.login = async (req, res) => {
         email: user.email,
         apiKey: user.apiKey,
         token: generateToken(user._id),
+        displayName: user.displayName,
+        customInstructions: user.customInstructions,
+        enableCustomInstructions: user.enableCustomInstructions,
       });
     } else {
       res.status(401).json({ message: 'Invalid email or password' });

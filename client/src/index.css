@@ -26,3 +26,19 @@
     background: #777;
   }
 }
+
+/* --- BLINKING CURSOR ANIMATION --- */
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.blinking-cursor {
+  display: inline-block;
+  width: 8px; /* Adjust width as needed */
+  height: 1.2em; /* Match line height */
+  background-color: currentColor;
+  animation: blink 1s step-end infinite;
+  vertical-align: bottom;
+}

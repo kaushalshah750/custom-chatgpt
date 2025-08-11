@@ -1,6 +1,7 @@
 // client/src/store/useChatStore.js
 import { create } from 'zustand';
 import api from '../services/api';
+import { fetchEventSource } from '@microsoft/fetch-event-source';
 
 export const useChatStore = create((set, get) => ({
   chats: [],
@@ -78,43 +79,86 @@ export const useChatStore = create((set, get) => ({
 
   // Send a message
   sendMessage: async (messageContent) => {
-    const { activeChatId, messages } = get();
+    const { activeChatId, messages, chats } = get();
     if (!activeChatId) return;
 
     // Add user message immediately for better UX
-    const userMessage = { _id: Date.now(), role: 'user', content: messageContent, timestamp: new Date().toISOString() };
-    set({ messages: [...messages, userMessage], isLoading: true });
+    const userMessage = { _id: Date.now().toString(), role: 'user', content: messageContent, timestamp: new Date().toISOString() };
+    // Add a placeholder for the assistant's message
+    const assistantPlaceholder = { _id: (Date.now() + 1).toString(), role: 'assistant', content: '', timestamp: new Date().toISOString() };
+    
+    set({ 
+      messages: [...messages, userMessage, assistantPlaceholder],
+      isLoading: true 
+    });
 
-    try {
-      // Get current chat settings
-      const currentChat = get().chats.find(c => c._id === activeChatId);
-      const { data } = await api.post('/chat/message', {
+    const currentChat = chats.find(c => c._id === activeChatId);
+    const token = JSON.parse(localStorage.getItem('auth-storage')).state.token;
+
+    await fetchEventSource(`http://localhost:5001/api/chat/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
         chatId: activeChatId,
         messageContent,
         model: currentChat.model,
         temperature: currentChat.temperature,
         systemPrompt: currentChat.systemPrompt,
-      });
+      }),
+      
+      onmessage(event) {
+        const parsedData = JSON.parse(event.data);
 
-      const { assistantMessage, updatedChat } = data;
+        // Handle different event types from the server
+        switch (parsedData.type) {
+          case 'chatUpdate':
+            // The title was updated on the backend
+            set(state => ({
+              chats: state.chats.map(c => c._id === parsedData.data._id ? parsedData.data : c)
+            }));
+            break;
 
-      // If the chat was updated (e.g., title changed), update it in the store
-      if (updatedChat) {
-        set((state) => ({
-          chats: state.chats.map(c => c._id === updatedChat._id ? updatedChat : c),
-        }));
+          case 'content':
+            // Append the new content chunk to the assistant's message
+            set(state => ({
+              messages: state.messages.map(msg => 
+                msg._id === assistantPlaceholder._id 
+                  ? { ...msg, content: msg.content + parsedData.data }
+                  : msg
+              )
+            }));
+            break;
+            
+          case 'done':
+            // The stream is finished
+            set({ isLoading: false });
+            // At this point, you could optionally refetch the last message to get its final DB _id
+            break;
+
+          case 'error':
+            // Handle server-side errors
+            console.error("Stream error:", parsedData.data);
+            set(state => ({
+              messages: state.messages.map(msg => 
+                msg._id === assistantPlaceholder._id 
+                  ? { ...msg, content: "Sorry, an error occurred." }
+                  : msg
+              ),
+              isLoading: false
+            }));
+            break;
+        }
+      },
+      
+      onerror(err) {
+        console.error("Fetch Event Source error:", err);
+        set({ isLoading: false });
+        // Make sure to re-throw the error so it can be caught by the user
+        throw err;
       }
-
-
-      // Replace placeholder user message and add assistant response
-      set((state) => ({
-        messages: [...state.messages.slice(0, -1), { ...userMessage, _id: assistantMessage.timestamp }, assistantMessage], // Use a more stable ID later
-        isLoading: false,
-      }));
-    } catch (error) {
-      console.error("Failed to send message:", error);
-      // Optionally show an error message in the chat
-      set({ isLoading: false });
-    }
+    });
   },
 }));
