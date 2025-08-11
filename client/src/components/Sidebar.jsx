@@ -1,12 +1,16 @@
 // client/src/components/Sidebar.jsx
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom'; // <-- Import useNavigate and useParams
 import { useChatStore } from '../store/useChatStore';
-import { FaPlus, FaFolder, FaSun, FaMoon, FaChevronDown, FaChevronRight } from 'react-icons/fa';
+import { useAuthStore } from '../store/useAuthStore';
+import { FaPlus, FaFolder, FaSun, FaMoon, FaChevronDown, FaChevronRight, FaAdjust, FaComment  } from 'react-icons/fa';
 import MoveToFolderModal from './MoveToFolderModal'; // <-- Import the new modal component
 import PersonalizeModal from './PersonalizeModal'; // <-- Import the modal
-import { useAuthStore } from '../store/useAuthStore';
 
 const Sidebar = ({ toggleDarkMode, isDarkMode }) => {
+  const navigate = useNavigate(); // <-- Hook for navigation
+  const { chatId: activeChatIdFromUrl } = useParams(); // <-- Get active ID from URL
+
   const { user, logout } = useAuthStore();
   const { chats, folders, activeChatId, setActiveChat, createNewChat, fetchUserData, createFolder, moveChatToFolder } = useChatStore();
   const [openFolders, setOpenFolders] = React.useState({});
@@ -17,6 +21,18 @@ const Sidebar = ({ toggleDarkMode, isDarkMode }) => {
   useEffect(() => {
     fetchUserData();
   }, [fetchUserData]);
+
+  const handleSelectChat = (chatId) => {
+    navigate(`/c/${chatId}`); // <-- Change URL on chat select
+  };
+
+  const handleCreateNewChat = async () => {
+    // createNewChat now needs to return the new chat object so we can navigate
+    const newChat = await createNewChat(); 
+    if (newChat) {
+      navigate(`/c/${newChat._id}`);
+    }
+  };
   
   const openMoveModal = (chatId) => {
     setChatToMoveId(chatId);
@@ -65,14 +81,24 @@ const Sidebar = ({ toggleDarkMode, isDarkMode }) => {
         onMove={handleMoveChat}
       />
 
+<div className="flex justify-between items-center mb-4">
+        <h1 className="text-xl font-bold">My ChatGPT</h1>
+        <div>
+
+        <button onClick={toggleDarkMode} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+          <FaAdjust />
+        </button>
+        <button onClick={handleCreateNewChat} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+          <FaComment />
+        </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-2">
         <button onClick={handleNewFolder} className="w-full flex items-center justify-center gap-2 p-2 mb-4 text-sm text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-200 dark:hover:bg-gray-800">
           <FaFolder /> New Folder
         </button>
 
-        <button onClick={createANewChat} className="w-full flex items-center justify-center gap-2 p-2 mb-4 text-sm text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-200 dark:hover:bg-gray-800">
-          <FaFolder /> New Chat
-        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -96,10 +122,10 @@ const Sidebar = ({ toggleDarkMode, isDarkMode }) => {
         ))}
         
         <h2 className="font-semibold text-sm mt-4 p-2">Chats</h2>
-        <ul className="border-l border-transparent">
-          {unfiledChats.map(chat => (
-            <li key={chat._id} onClick={() => setActiveChat(chat._id)} className={`group p-2 rounded cursor-pointer text-sm truncate flex justify-between items-center ${activeChatId === chat._id ? 'bg-blue-200 dark:bg-blue-800' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
-              <span className="flex-1 truncate">{chat.title}</span>
+        <ul>
+          {chats.filter(chat => !chat.folderId).map(chat => (
+            <li key={chat._id} onClick={() => handleSelectChat(chat._id)} className={`group p-2 rounded cursor-pointer text-sm truncate flex justify-between items-center ${activeChatIdFromUrl === chat._id ? 'bg-blue-200 dark:bg-blue-800' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
+              <span>{chat.title}</span>
               {/* --- UPDATE THE "MOVE" BUTTON ONCLICK --- */}
               <button onClick={(e) => { e.stopPropagation(); openMoveModal(chat._id); }} className="opacity-0 group-hover:opacity-100 text-xs p-1 rounded bg-gray-300 dark:bg-gray-600 ml-2">
                 Move

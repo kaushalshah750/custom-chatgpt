@@ -55,7 +55,9 @@ export const useChatStore = create((set, get) => ({
 
   // Set the active chat and fetch its history
   setActiveChat: async (chatId) => {
-    set({ activeChatId: chatId, messages: [], isLoading: true });
+    if (!chatId || get().activeChatId === chatId) return; // Prevent re-fetching same chat
+
+    set({ activeChatId: chatId, messages: [], isLoading: true }); // Show loading state
     try {
       const { data } = await api.get(`/chat/history/${chatId}`);
       set({ messages: data });
@@ -71,9 +73,11 @@ export const useChatStore = create((set, get) => ({
     try {
       const { data: newChat } = await api.post('/chat/new');
       set((state) => ({ chats: [newChat, ...state.chats] }));
-      get().setActiveChat(newChat._id);
+      // DON'T call setActiveChat here anymore. Instead, return the chat object.
+      return newChat; // <-- RETURN THE NEW CHAT
     } catch (error) {
         console.error("Failed to create new chat", error);
+        return null;
     }
   },
 

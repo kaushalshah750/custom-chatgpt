@@ -20,6 +20,16 @@ function App() {
           path="/"
           element={
             <PrivateRoute>
+              {/* Redirect base path to a placeholder or the first chat */}
+              <Home />
+            </PrivateRoute>
+          }
+        />
+        {/* THE NEW DYNAMIC ROUTE */}
+        <Route
+          path="/c/:chatId"
+          element={
+            <PrivateRoute>
               <Home />
             </PrivateRoute>
           }
